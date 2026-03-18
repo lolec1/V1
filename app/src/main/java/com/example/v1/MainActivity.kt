@@ -54,8 +54,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DatePeriod
 
 @Composable
 fun DeadlinesPager(deadlines: List<Deadline>) {
@@ -214,15 +217,17 @@ fun AcademicCalendarApp() {
     var hwEnabled by remember { mutableStateOf(true) }
     var quizEnabled by remember { mutableStateOf(true) }
     var labEnabled by remember { mutableStateOf(true) }
-    var examsEnabled by remember { mutableStateOf(true) }
-
+    val todayDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     val deadlines = listOf(
-        Deadline("Homework 2", "Physics 2", LocalDate(2026, 3, 18), "23:00", "H/W", Color(0xFF4CAF50)),
+        Deadline("Homework 1", "Calculus 2", todayDate.minus(3, DateTimeUnit.DAY), "10:00", color = Color(0xFF2196F3), type = "H/W"),
+        Deadline("Homework 1", "Physics 2", todayDate.minus(8, DateTimeUnit.DAY), "12:00", color = Color(0xFF2196F3), type = "H/W"),
+        Deadline("Homework 2", "Physics 2", LocalDate(2026, 3, 19), "23:00", "H/W", Color(0xFF4CAF50)),
         Deadline("Quiz 2", "Physics 2", LocalDate(2026, 3, 20), "23:00", "Quiz", Color(0xFF2196F3)),
         Deadline("Quiz 2", "Physics 2", LocalDate(2026, 3, 22), "23:00", "Quiz", Color(0xFF2196F3)),
         Deadline("Laboratory", "OOP", LocalDate(2026, 3, 24), "23:00", "Lab", Color(0xFFFF9800)),
         Deadline("Laboratory", "OOP", LocalDate(2026, 3, 26), "23:00", "Lab", Color(0xFFFF9800)),
-        Deadline("Final Exam", "Physics 2", LocalDate(2026, 3, 28), "23:00", "Exams", Color(0xFFF44336))
+        Deadline("Quiz 3", "Physics 2", LocalDate(2026, 4, 10), "23:00", "Quiz", Color(0xFF2196F3)),
+        Deadline("Lab 4", "OOP", LocalDate(2026, 4, 18), "23:00", "Lab", Color(0xFFFF9800)),
     )
 
 
@@ -230,14 +235,13 @@ fun AcademicCalendarApp() {
         .toLocalDateTime(TimeZone.currentSystemDefault())
         .date
         val filteredDeadlines = deadlines.filter { deadline ->
-        when (deadline.type) {
-            "H/W" -> hwEnabled
-            "Quiz" -> quizEnabled
-            "Lab" -> labEnabled
-            "Exams" -> examsEnabled
-            else -> false
-        }
-    }.sortedBy { it.date.daysUntil(today) }
+                deadline.date >= today && when (deadline.type) {
+                    "H/W" -> hwEnabled
+                    "Quiz" -> quizEnabled
+                    "Lab" -> labEnabled
+                    else -> false
+                }
+            }.sortedBy { it.date }
 
     // ← LazyColumn ПОСЛЕ всех переменных
     LazyColumn(
@@ -249,7 +253,12 @@ fun AcademicCalendarApp() {
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item { TopHeader() }
-        item { DeadlinesPager(filteredDeadlines) }
+        val upcomingDeadlines = deadlines
+                .filter { it.date >= today }
+            .sortedBy { it.date }
+            .take(3)
+
+        item { DeadlinesPager(upcomingDeadlines) }
         item {
             FiltersRow(
                 hwEnabled = hwEnabled,
@@ -257,13 +266,45 @@ fun AcademicCalendarApp() {
                 quizEnabled = quizEnabled,
                 onQuizToggle = { quizEnabled = !quizEnabled },
                 labEnabled = labEnabled,
-                onLabToggle = { labEnabled = !labEnabled },
-                examsEnabled = examsEnabled,
-                onExamsToggle = { examsEnabled = !examsEnabled }
+                onLabToggle = { labEnabled = !labEnabled }
             )
         }
         item { CalendarSection(today = today, deadlines = filteredDeadlines) }
         item {
+            SwitchButtons(
+                selected = listContent,
+                onSelect = { listContent = it }
+            )
+        }
+        item {
+            when (listContent) {
+                "deadlines" -> {
+                    filteredDeadlines.forEach { deadline ->
+                        DeadlineCard(deadline)
+                    }
+                }
+                "grades" -> {
+                    val sortedWeeks = gradesByWeek.keys
+                        .sortedByDescending { it.removePrefix("Week ").toInt() }
+
+                    sortedWeeks.forEach { week ->
+                        val grades = gradesByWeek[week] ?: emptyList()
+
+                        Text(
+                            text = week,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+
+                        grades.forEach { grade ->
+                            GradeCard(grade)
+                        }
+                    }
+                }
+            }
+        }
+        /* item {
             ContentIndicator(isDeadlinesMode = listContent == "deadlines")
         }
         item {
@@ -275,6 +316,50 @@ fun AcademicCalendarApp() {
                 onSwipeLeftToRight = { listContent = "deadlines" }
             )
         }
+        */
+    }
+}
+@Composable
+fun SwitchButtons(selected: String, onSelect: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        ToggleButton(
+            text = "Deadlines",
+            isSelected = selected == "deadlines",
+            onClick = { onSelect("deadlines") }
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        ToggleButton(
+            text = "Grades",
+            isSelected = selected == "grades",
+            onClick = { onSelect("grades") }
+        )
+    }
+}
+@Composable
+fun ToggleButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
+    val blue = Color(0xFF1565C0)
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) blue else Color.White
+        ),
+        modifier = Modifier
+            .clickable { onClick() }
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+            color = if (isSelected) Color.White else blue,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 @Composable
@@ -345,7 +430,11 @@ fun ListContent(
             }
             "grades" -> {
                 // ВСЕ недели оценок (НЕ скроллится сам)
-                gradesByWeek.forEach { (week, grades) ->
+                val sortedWeeks = gradesByWeek.keys
+                    .sortedByDescending { it.removePrefix("Week ").toInt() }
+
+                sortedWeeks.forEach { week ->
+                    val grades = gradesByWeek[week] ?: emptyList()
                     Text(
                         text = week,
                         fontSize = 18.sp,
@@ -416,7 +505,6 @@ fun CalendarContent(
     hwEnabled: Boolean, onHwToggle: () -> Unit,
     quizEnabled: Boolean, onQuizToggle: () -> Unit,
     labEnabled: Boolean, onLabToggle: () -> Unit,
-    examsEnabled: Boolean, onExamsToggle: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -428,7 +516,7 @@ fun CalendarContent(
     ) {
         item { DeadlinesPager(filteredDeadlines) }
         item {
-            FiltersRow(hwEnabled, onHwToggle, quizEnabled, onQuizToggle, labEnabled, onLabToggle, examsEnabled, onExamsToggle)
+            FiltersRow(hwEnabled, onHwToggle, quizEnabled, onQuizToggle, labEnabled, onLabToggle)
         }
         item { CalendarSection(today = today, deadlines = filteredDeadlines) }
         items(filteredDeadlines) { DeadlineCard(it) }
@@ -473,7 +561,6 @@ fun CalendarScreen(
                 hwEnabled, onHwToggle,
                 quizEnabled, onQuizToggle,
                 labEnabled, onLabToggle,
-                examsEnabled, onExamsToggle
             )
         }
         item { CalendarSection(today = today, deadlines = filteredDeadlines) }
@@ -533,7 +620,7 @@ fun TopHeader() {
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column {
-            Text("Рахмон Санҷар", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("Рахмонов Санжар", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Text("Urgent deadlines", fontSize = 14.sp, color = Color.Gray)
         }
     }
@@ -542,16 +629,64 @@ fun TopHeader() {
 @Composable
 fun CalendarSection(today: LocalDate, deadlines: List<Deadline>) {
     var selectedText by remember { mutableStateOf<String?>(null) }
+    var currentMonthOffset by remember { mutableStateOf(0) }
+
+    val baseDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+    val currentMonthDate = baseDate.plus(DatePeriod(months = currentMonthOffset))
+
+    var dragOffset by remember { mutableStateOf(0f) }
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Март 2026", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier
+            .padding(16.dp)
+            .pointerInput(Unit) {
+            detectHorizontalDragGestures(
+                onHorizontalDrag = { _, dragAmount ->
+                    dragOffset += dragAmount
+                },
+                onDragEnd = {
+                    if (dragOffset < -100 && currentMonthOffset < 2) currentMonthOffset++
+                    if (dragOffset > 100 && currentMonthOffset > 0) currentMonthOffset--
+                    dragOffset = 0f
+                }
+            )
+        } ) {
+            val monthNames = listOf(
+                "Январь","Февраль","Март","Апрель","Май","Июнь",
+                "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "<",
+                    fontSize = 20.sp,
+                    modifier = Modifier.clickable {
+                        if (currentMonthOffset > 0) currentMonthOffset--
+                    }
+                )
+                Text(
+                    text = ">",
+                    fontSize = 20.sp,
+                    modifier = Modifier.clickable {
+                        if (currentMonthOffset < 2) currentMonthOffset++
+                    }
+                )
+            }
+            Text(
+                text = "${monthNames[currentMonthDate.monthNumber - 1]} ${currentMonthDate.year}",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
             Spacer(modifier = Modifier.height(12.dp))
             CalendarGrid(
                 today = today,
+                displayedMonth = currentMonthDate,
                 deadlines = deadlines,
                 onDayClick = { text -> selectedText = text }
             )
@@ -570,11 +705,16 @@ fun CalendarSection(today: LocalDate, deadlines: List<Deadline>) {
 @Composable
 fun CalendarGrid(
     today: LocalDate,
+    displayedMonth: LocalDate,
     deadlines: List<Deadline>,
     onDayClick: (String) -> Unit
 ) {
-    val monthStart = LocalDate(2026, 3, 1) // 1 марта 2026 - понедельник
-    val daysInMonth = 31
+    val daysInMonth = when (displayedMonth.monthNumber) {
+        1,3,5,7,8,10,12 -> 31
+        4,6,9,11 -> 30
+        2 -> 28
+        else -> 30
+    }
     val firstDayOffset = 0 // Понедельник
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -598,7 +738,7 @@ fun CalendarGrid(
                 repeat(7) { dayIndex ->
                     val dayOfMonth = weekIndex * 7 + dayIndex - firstDayOffset + 1
                     if (dayOfMonth in 1..daysInMonth) {
-                        val dayDate = LocalDate(2026, 3, dayOfMonth)
+                        val dayDate = LocalDate(displayedMonth.year, displayedMonth.monthNumber, dayOfMonth)
                         val dayDeadlines = deadlines.filter { it.date == dayDate }
 
                         DayCellWithDeadlines(
@@ -632,6 +772,8 @@ fun DayCellWithDeadlines(
     deadlines: List<Deadline>,
     modifier: Modifier = Modifier
 ) {
+    val todayDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+    val isPast = dayDate < todayDate
     Box(
         modifier = modifier
             .aspectRatio(1f)
@@ -640,11 +782,8 @@ fun DayCellWithDeadlines(
             .background(
                 when {
                     isToday -> Color(0xFF2196F3).copy(alpha = 0.9f)
-                    deadlines.isNotEmpty() -> {
-                        // Заливка цветом первого дедлайна (или градиент если несколько)
-                        val primaryColor = deadlines.first().color.copy(alpha = 0.3f)
-                        primaryColor
-                    }
+                    isPast && deadlines.isNotEmpty() -> Color.LightGray.copy(alpha = 0.3f)
+                    deadlines.isNotEmpty() -> deadlines.first().color.copy(alpha = 0.3f)
                     else -> Color.White
                 }
             ),
@@ -653,9 +792,12 @@ fun DayCellWithDeadlines(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = day.toString(),
-                color = if (isToday) Color.White
-                else if (deadlines.isNotEmpty()) deadlines.first().color
-                else Color.Black,
+                color = when {
+                    isToday -> Color.White
+                    isPast -> Color.Gray
+                    deadlines.isNotEmpty() -> deadlines.first().color
+                    else -> Color.Black
+                },
                 fontSize = 14.sp,
                 fontWeight = if (isToday || deadlines.isNotEmpty()) FontWeight.Bold else FontWeight.Normal
             )
@@ -670,6 +812,13 @@ fun DayCellWithDeadlines(
                         .background(deadline.color)
                 )
             }
+                if (dayDate.monthNumber == 4 && day == 10) {
+                    Text("🔥", fontSize = 10.sp)
+                }
+                if (dayDate.monthNumber == 4 && day == 18) {
+                    Text("📚", fontSize = 10.sp)
+                }
+
         }
     }
 }
@@ -702,17 +851,33 @@ fun DayCell(day: Int, isToday: Boolean, hasDeadline: Boolean, modifier: Modifier
 fun FiltersRow(
     hwEnabled: Boolean, onHwToggle: () -> Unit,
     quizEnabled: Boolean, onQuizToggle: () -> Unit,
-    labEnabled: Boolean, onLabToggle: () -> Unit,
-    examsEnabled: Boolean, onExamsToggle: () -> Unit
+    labEnabled: Boolean, onLabToggle: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        FilterButton("H/W", hwEnabled, Color(0xFF4CAF50), onHwToggle)
-        FilterButton("Quiz", quizEnabled, Color(0xFF2196F3), onQuizToggle)
-        FilterButton("Lab", labEnabled, Color(0xFFFF9800), onLabToggle)
-        FilterButton("Exams", examsEnabled, Color(0xFFF44336), onExamsToggle)
+
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterButton("H/W", hwEnabled, Color(0xFF4CAF50), onHwToggle)
+            FilterButton("Quiz", quizEnabled, Color(0xFF2196F3), onQuizToggle)
+            FilterButton("Lab", labEnabled, Color(0xFFFF9800), onLabToggle)
+        }
+
+        Icon(
+            imageVector = Icons.Default.DateRange,
+            contentDescription = "Timetable",
+            tint = Color(0xFF1565C0),
+            modifier = Modifier
+                .size(28.dp)
+                .clickable { }
+        )
     }
 }
 
@@ -769,15 +934,37 @@ fun DeadlineCard(deadline: Deadline) {
         ) {
             Box(
                 modifier = Modifier.size(48.dp).clip(CircleShape).background(
-                    brush = Brush.radialGradient(listOf(deadline.color, deadline.color.copy(alpha = 0.5f)))
+                    brush = Brush.radialGradient(
+                        listOf(deadline.color, deadline.color.copy(alpha = 0.5f))
+                    )     // TODO
                 ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(deadline.type.take(1), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
+             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(deadline.title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+
+                Text(
+                    text = "URGENT DEADLINE",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+
+                Text(
+                    deadline.type,
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    deadline.subject,
+                    color = Color.White.copy(0.9f)
+                )
+            }
+            Text(deadline.title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text(deadline.subject, fontSize = 14.sp, color = Color.Gray)
                 Text(
                     text = "${deadline.date.dayOfMonth.toString().padStart(2, '0')}.${deadline.date.monthNumber.toString().padStart(2, '0')}.${deadline.date.year} ${deadline.time}",
@@ -792,10 +979,20 @@ fun DeadlineCard(deadline: Deadline) {
                     fontWeight = FontWeight.Medium
                 )
             }
-            Text(deadline.date.dayOfMonth.toString(), fontSize = 28.sp, fontWeight = FontWeight.Bold, color = deadline.color)
-        }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = formatTime(hoursLeft.toInt()),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = deadline.date.dayOfMonth.toString(),
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+            }        }
     }
-}
+
 
 data class Deadline(
     val title: String,
@@ -829,26 +1026,30 @@ data class Grade(
     val color: Color
 )
 val gradesByWeek = mapOf(
-    "Week 1" to listOf(
-        Grade("Physics 2", "H/W", "85/100", Color(0xFF4CAF50)),
-        Grade("OOP", "Quiz", "36/40", Color(0xFF2196F3))
-    ),
-    "Week 2" to listOf(
-        Grade("Physics 2", "Lab", "92/100", Color(0xFFFF9800)),
-        Grade("OOP", "H/W", "78/100", Color(0xFF4CAF50))
-    ),
-    "Week 3" to listOf(
-        Grade("Physics 2", "Quiz", "32/40", Color(0xFF2196F3)),
-        Grade("OOP", "Lab", "88/100", Color(0xFFFF9800))
+    "Week 5" to listOf(
+        Grade("Calculus 2", "H/W", "?", Color.Gray),
+        Grade("Physics 2", "Quiz", "?", Color.Gray),
+        Grade("Physics 2", "Exam", "91/100", Color(0xFFF44336)),
+        Grade("OOP", "Lab", "82/100", Color(0xFFFF9800)),
+        Grade("Physics 2", "H/W", "87/100", Color(0xFF4CAF50))
     ),
     "Week 4" to listOf(
         Grade("Physics 2", "H/W", "95/100", Color(0xFF4CAF50)),
         Grade("OOP", "Quiz", "38/40", Color(0xFF2196F3))
     ),
-    "Week 5" to listOf(
-        Grade("Physics 2", "Exam", "91/100", Color(0xFFF44336)),
-        Grade("OOP", "Lab", "82/100", Color(0xFFFF9800)),
-        Grade("Physics 2", "H/W", "87/100", Color(0xFF4CAF50))
+    "Week 3" to listOf(
+        Grade("Physics 2", "Quiz", "32/40", Color(0xFF2196F3)),
+        Grade("OOP", "Lab", "88/100", Color(0xFFFF9800))
+    ),
+    "Week 2" to listOf(
+        Grade("Physics 2", "Lab", "92/100", Color(0xFFFF9800)),
+        Grade("OOP", "H/W", "78/100", Color(0xFF4CAF50))
+    ),
+    "Week 1" to listOf(
+        Grade("Physics 2", "H/W", "85/100", Color(0xFF4CAF50)),
+        Grade("OOP", "Quiz", "36/40", Color(0xFF2196F3)),
+        // 🔽 НОВЫЕ
+
     )
 )
 @Composable
@@ -860,7 +1061,11 @@ fun GradesScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        gradesByWeek.forEach { (week, grades) ->
+        val sortedWeeks = gradesByWeek.keys
+            .sortedByDescending { it.removePrefix("Week ").toInt() }
+
+        sortedWeeks.forEach { week ->
+            val grades = gradesByWeek[week] ?: emptyList()
             item {
                 Text(
                     text = week,
@@ -895,15 +1100,17 @@ fun GradeCard(grade: Grade) {
                     .size(52.dp)
                     .clip(CircleShape)
                     .background(
-                        brush = Brush.radialGradient(
-                            listOf(grade.color, grade.color.copy(alpha = 0.5f))
-                        )
+                        brush = if (grade.score == "?") {
+                            Brush.radialGradient(listOf(Color.LightGray, Color.Gray))
+                        } else {
+                            Brush.radialGradient(listOf(grade.color, grade.color.copy(alpha = 0.5f)))
+                        }
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = grade.score,
-                    color = Color.White,
+                    color = if (grade.score == "?") Color.DarkGray else Color.White,
                     fontSize = if (grade.score.length > 5) 14.sp else 18.sp,
                     fontWeight = FontWeight.Bold
                 )
