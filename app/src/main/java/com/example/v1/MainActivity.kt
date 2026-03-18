@@ -212,38 +212,95 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AcademicCalendarApp() {
-    // ← ВСЕ ПЕРЕМЕННЫЕ СНАЧАЛА
     var listContent by remember { mutableStateOf("deadlines") }
     var hwEnabled by remember { mutableStateOf(true) }
     var quizEnabled by remember { mutableStateOf(true) }
     var labEnabled by remember { mutableStateOf(true) }
+
     val todayDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     val deadlines = listOf(
-        Deadline("Homework 1", "Calculus 2", todayDate.minus(3, DateTimeUnit.DAY), "10:00", color = Color(0xFF2196F3), type = "H/W"),
-        Deadline("Homework 1", "Physics 2", todayDate.minus(8, DateTimeUnit.DAY), "12:00", color = Color(0xFF2196F3), type = "H/W"),
-        Deadline("Homework 2", "Physics 2", LocalDate(2026, 3, 19), "23:00", "H/W", Color(0xFF4CAF50)),
-        Deadline("Quiz 2", "Physics 2", LocalDate(2026, 3, 20), "23:00", "Quiz", Color(0xFF2196F3)),
-        Deadline("Quiz 2", "Physics 2", LocalDate(2026, 3, 22), "23:00", "Quiz", Color(0xFF2196F3)),
-        Deadline("Laboratory", "OOP", LocalDate(2026, 3, 24), "23:00", "Lab", Color(0xFFFF9800)),
-        Deadline("Laboratory", "OOP", LocalDate(2026, 3, 26), "23:00", "Lab", Color(0xFFFF9800)),
-        Deadline("Quiz 3", "Physics 2", LocalDate(2026, 4, 10), "23:00", "Quiz", Color(0xFF2196F3)),
-        Deadline("Lab 4", "OOP", LocalDate(2026, 4, 18), "23:00", "Lab", Color(0xFFFF9800)),
+        Deadline(
+            title = "Homework 1",
+            subject = "Calculus 2",
+            date = todayDate.minus(3, DateTimeUnit.DAY),
+            time = "10:00",
+            type = "H/W",
+            color = Color(0xFF2196F3)
+        ),
+        Deadline(
+            title = "Homework 1",
+            subject = "Physics 2",
+            date = todayDate.minus(8, DateTimeUnit.DAY),
+            time = "12:00",
+            type = "H/W",
+            color = Color(0xFF2196F3)
+        ),
+        Deadline(
+            title = "Homework 2",
+            subject = "Physics 2",
+            date = LocalDate(2026, 3, 19),
+            time = "23:00",
+            type = "H/W",
+            color = Color(0xFF4CAF50)
+        ),
+        Deadline(
+            title = "Quiz 2",
+            subject = "Physics 2",
+            date = LocalDate(2026, 3, 20),
+            time = "23:00",
+            type = "Quiz",
+            color = Color(0xFF2196F3)
+        ),
+        Deadline(
+            title = "Quiz 2",
+            subject = "Physics 2",
+            date = LocalDate(2026, 3, 22),
+            time = "23:00",
+            type = "Quiz",
+            color = Color(0xFF2196F3)
+        ),
+        Deadline(
+            title = "Laboratory",
+            subject = "OOP",
+            date = LocalDate(2026, 3, 24),
+            time = "23:00",
+            type = "Lab",
+            color = Color(0xFFFF9800)
+        ),
+        Deadline(
+            title = "Laboratory",
+            subject = "OOP",
+            date = LocalDate(2026, 3, 26),
+            time = "23:00",
+            type = "Lab",
+            color = Color(0xFFFF9800)
+        ),
+        Deadline(
+            title = "Quiz 3",
+            subject = "Physics 2",
+            date = LocalDate(2026, 4, 10),
+            time = "23:00",
+            type = "Quiz",
+            color = Color(0xFF2196F3)
+        ),
+        Deadline(
+            title = "Lab 4",
+            subject = "OOP",
+            date = LocalDate(2026, 4, 18),
+            time = "23:00",
+            type = "Lab",
+            color = Color(0xFFFF9800)
+        )
     )
+    val filteredDeadlines = deadlines.filter { deadline ->
+        deadline.date >= todayDate && when (deadline.type) {
+            "H/W" -> hwEnabled
+            "Quiz" -> quizEnabled
+            "Lab" -> labEnabled
+            else -> false
+        }
+    }.sortedBy { it.date }
 
-
-    val today = Clock.System.now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
-        val filteredDeadlines = deadlines.filter { deadline ->
-                deadline.date >= today && when (deadline.type) {
-                    "H/W" -> hwEnabled
-                    "Quiz" -> quizEnabled
-                    "Lab" -> labEnabled
-                    else -> false
-                }
-            }.sortedBy { it.date }
-
-    // ← LazyColumn ПОСЛЕ всех переменных
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -253,12 +310,13 @@ fun AcademicCalendarApp() {
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item { TopHeader() }
-        val upcomingDeadlines = deadlines
-                .filter { it.date >= today }
-            .sortedBy { it.date }
-            .take(3)
 
-        item { DeadlinesPager(upcomingDeadlines) }
+        // Pager с ближайшими дедлайнами
+        item {
+            val upcomingDeadlines = deadlines.filter { it.date >= todayDate }
+                .sortedBy { it.date }.take(3)
+            DeadlinesPager(upcomingDeadlines)
+        }
         item {
             FiltersRow(
                 hwEnabled = hwEnabled,
@@ -269,18 +327,30 @@ fun AcademicCalendarApp() {
                 onLabToggle = { labEnabled = !labEnabled }
             )
         }
-        item { CalendarSection(today = today, deadlines = filteredDeadlines) }
-        item {
-            SwitchButtons(
-                selected = listContent,
-                onSelect = { listContent = it }
-            )
-        }
+        // КАЛЕНДАРЬ
+        item { CalendarSection(today = todayDate, deadlines = filteredDeadlines, modifier = Modifier.padding(top = 4.dp)) }
+
+        // ФИЛЬТРЫ БЛИЗКО К КАЛЕНДАРЮ (убрал padding bottom)
+
+
+        // Переключатель Deadlines/Grades
+        item { SwitchButtons(selected = listContent, onSelect = { listContent = it }) }
+
+        // Контент
         item {
             when (listContent) {
                 "deadlines" -> {
-                    filteredDeadlines.forEach { deadline ->
-                        DeadlineCard(deadline)
+                    if (filteredDeadlines.isEmpty()) {
+                        Text(
+                            text = "Нет дедлайнов",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                            color = Color.Gray
+                        )
+                    } else {
+                        filteredDeadlines.forEach { deadline ->
+                            DeadlineCard(deadline)
+                        }
                     }
                 }
                 "grades" -> {
@@ -289,14 +359,12 @@ fun AcademicCalendarApp() {
 
                     sortedWeeks.forEach { week ->
                         val grades = gradesByWeek[week] ?: emptyList()
-
                         Text(
                             text = week,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(vertical = 4.dp)
                         )
-
                         grades.forEach { grade ->
                             GradeCard(grade)
                         }
@@ -304,19 +372,6 @@ fun AcademicCalendarApp() {
                 }
             }
         }
-        /* item {
-            ContentIndicator(isDeadlinesMode = listContent == "deadlines")
-        }
-        item {
-            ListContent(
-                contentType = listContent,
-                deadlines = filteredDeadlines,
-                gradesByWeek = gradesByWeek,
-                onSwipeRightToLeft = { listContent = "grades" },
-                onSwipeLeftToRight = { listContent = "deadlines" }
-            )
-        }
-        */
     }
 }
 @Composable
@@ -325,40 +380,49 @@ fun SwitchButtons(selected: String, onSelect: (String) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.Center
+        horizontalArrangement = Arrangement.SpaceEvenly // ← Равномерно
     ) {
         ToggleButton(
             text = "Deadlines",
             isSelected = selected == "deadlines",
-            onClick = { onSelect("deadlines") }
+            onClick = { onSelect("deadlines") },
+            modifier = Modifier.weight(1f) // ← Одинаковый размер
         )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
+        Spacer(modifier = Modifier.width(16.dp))
         ToggleButton(
             text = "Grades",
             isSelected = selected == "grades",
-            onClick = { onSelect("grades") }
+            onClick = { onSelect("grades") },
+            modifier = Modifier.weight(1f) // ← Одинаковый размер
         )
     }
 }
-@Composable
-fun ToggleButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
-    val blue = Color(0xFF1565C0)
 
+@Composable
+fun ToggleButton(
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier // ← Добавил параметр
+) {
+    val blue = Color(0xFF1565C0)
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) blue else Color.White
         ),
-        modifier = Modifier
+        modifier = modifier // ← Используем переданный modifier
+            .height(48.dp) // ← Фиксированная высота
             .clickable { onClick() }
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
             color = if (isSelected) Color.White else blue,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -627,7 +691,7 @@ fun TopHeader() {
 }
 
 @Composable
-fun CalendarSection(today: LocalDate, deadlines: List<Deadline>) {
+fun CalendarSection(today: LocalDate, deadlines: List<Deadline>, modifier: Modifier = Modifier) {
     var selectedText by remember { mutableStateOf<String?>(null) }
     var currentMonthOffset by remember { mutableStateOf(0) }
 
@@ -763,7 +827,62 @@ fun CalendarGrid(
         }
     }
 }
+@Composable
+fun GradeCard(grade: Grade) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Круг с оценкой
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(
+                        brush = if (grade.score == "?") {
+                            Brush.radialGradient(listOf(Color.LightGray, Color.Gray))
+                        } else {
+                            Brush.radialGradient(listOf(grade.color, grade.color.copy(alpha = 0.5f)))
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = grade.score,
+                    color = if (grade.score == "?") Color.DarkGray else Color.White,
+                    fontSize = if (grade.score.length > 5) 14.sp else 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Название предмета (чуть больше)
+            Text(
+                text = grade.subject,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                modifier = Modifier.weight(1f)
+            )
+
+            // Тип оценки справа
+            Text(
+                text = grade.type,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = grade.color
+            )
+        }
+    }
+}
 @Composable
 fun DayCellWithDeadlines(
     day: Int,
@@ -856,13 +975,14 @@ fun FiltersRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 8.dp),
+            .padding(top = 4.dp, bottom = 8.dp), // Чуть выше календаря
         verticalAlignment = Alignment.CenterVertically
     ) {
-
+        // Кнопки фильтров (левый край = левый край календаря)
         Row(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 16.dp), // ← Точно как у календаря
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterButton("H/W", hwEnabled, Color(0xFF4CAF50), onHwToggle)
@@ -870,13 +990,14 @@ fun FiltersRow(
             FilterButton("Lab", labEnabled, Color(0xFFFF9800), onLabToggle)
         }
 
+        // Иконка Timetable (правый край = правый край календаря)
         Icon(
             imageVector = Icons.Default.DateRange,
             contentDescription = "Timetable",
             tint = Color(0xFF1565C0),
             modifier = Modifier
+                .padding(end = 16.dp) // ← Точно как у календаря
                 .size(28.dp)
-                .clickable { }
         )
     }
 }
@@ -917,11 +1038,12 @@ fun DeadlinesList(deadlines: List<Deadline>) {
     }
 }
 
+
+
+
 @Composable
 fun DeadlineCard(deadline: Deadline) {
     val hoursLeft = calculateHoursLeft(deadline.date, deadline.time)
-    val daysLeft = (hoursLeft / 24f).toInt()
-    val remainingHours = hoursLeft % 24f
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -929,76 +1051,83 @@ fun DeadlineCard(deadline: Deadline) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // ✅ КРУЖОК цвета задания с заглавной буквой (слева)
             Box(
-                modifier = Modifier.size(48.dp).clip(CircleShape).background(
-                    brush = Brush.radialGradient(
-                        listOf(deadline.color, deadline.color.copy(alpha = 0.5f))
-                    )     // TODO
-                ),
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        brush = Brush.radialGradient(
+                            listOf(deadline.color, deadline.color.copy(alpha = 0.5f))
+                        )
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(deadline.type.take(1), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-
                 Text(
-                    text = "URGENT DEADLINE",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White.copy(alpha = 0.8f)
-                )
-
-                Text(
-                    deadline.type,
+                    text = deadline.type.take(1).uppercase(),
                     color = Color.White,
-                    fontSize = 22.sp,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // ✅ СЕНТР: тип, предмет, дата
+            Column(modifier = Modifier.weight(1f)) {
+                // Тип задания (черным)
+                Text(
+                    text = deadline.type,
+                    color = Color.Black,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
 
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // Предмет (серым, меньше)
                 Text(
-                    deadline.subject,
-                    color = Color.White.copy(0.9f)
+                    text = deadline.subject,
+                    color = Color.Gray,
+                    fontSize = 14.sp
                 )
-            }
-            Text(deadline.title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text(deadline.subject, fontSize = 14.sp, color = Color.Gray)
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Дата dd.mm.yy 23:00 (цвет типа задания)
                 Text(
-                    text = "${deadline.date.dayOfMonth.toString().padStart(2, '0')}.${deadline.date.monthNumber.toString().padStart(2, '0')}.${deadline.date.year} ${deadline.time}",
+                    text = "${deadline.date.dayOfMonth.toString().padStart(2, '0')}.${deadline.date.monthNumber.toString().padStart(2, '0')}.26 ${deadline.time}",
                     fontSize = 14.sp,
                     color = deadline.color,
                     fontWeight = FontWeight.Medium
                 )
-                Text(
-                    text = "${formatTime(hoursLeft.toInt())} left",
-                    fontSize = 12.sp,
-                    color = if (hoursLeft < 24) Color(0xFFF44336) else deadline.color,
-                    fontWeight = FontWeight.Medium
-                )
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // ✅ ПРАВАЯ ЧАСТЬ: количество дней и часов (черным)
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = formatTime(hoursLeft.toInt()),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
+                    color = Color.Black, // ✅ Черный цвет
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = deadline.date.dayOfMonth.toString(),
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-            }        }
+            }
+        }
     }
-
+}
 
 data class Deadline(
     val title: String,
     val subject: String,
     val date: LocalDate,
-    val time: String, // ← НОВОЕ ПОЛЕ
+    val time: String,
     val type: String,
     val color: Color
 )
@@ -1081,59 +1210,3 @@ fun GradesScreen() {
     }
 }
 
-@Composable
-fun GradeCard(grade: Grade) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Круг с оценкой
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(
-                        brush = if (grade.score == "?") {
-                            Brush.radialGradient(listOf(Color.LightGray, Color.Gray))
-                        } else {
-                            Brush.radialGradient(listOf(grade.color, grade.color.copy(alpha = 0.5f)))
-                        }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = grade.score,
-                    color = if (grade.score == "?") Color.DarkGray else Color.White,
-                    fontSize = if (grade.score.length > 5) 14.sp else 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Название предмета (чуть больше)
-            Text(
-                text = grade.subject,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                modifier = Modifier.weight(1f)
-            )
-
-            // Тип оценки справа
-            Text(
-                text = grade.type,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = grade.color
-            )
-        }
-    }
-}
