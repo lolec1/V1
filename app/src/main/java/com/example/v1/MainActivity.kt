@@ -58,70 +58,142 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.launch
 
 @Composable
-fun NearestDeadlineCard(deadlines: List<Deadline>) {
-    if (deadlines.isEmpty()) return
+fun DeadlinesPager(deadlines: List<Deadline>) {
+    val sorted = deadlines.sortedBy { it.date }.take(3)
 
-    val nearest = deadlines.minByOrNull { it.date }!!
-    val hoursLeft = calculateHoursLeft(nearest.date, nearest.time)
-    val progress = when {
-        hoursLeft <= 72 -> 0.7f + (0.3f * (1f - hoursLeft / 72f)) // 3 дня = 70%
-        else -> (1f - (hoursLeft / 168f).coerceIn(0f, 1f))
+    var currentIndex by remember { mutableStateOf(0) }
+    var dragOffset by remember { mutableStateOf(0f) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(90.dp)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { _, dragAmount ->
+                        dragOffset += dragAmount
+                    },
+                    onDragEnd = {
+                        if (dragOffset < -100 && currentIndex < sorted.lastIndex) {
+                            currentIndex++
+                        } else if (dragOffset > 100 && currentIndex > 0) {
+                            currentIndex--
+                        }
+                        dragOffset = 0f
+                    }
+                )
+            }
+    ) {
+        val deadline = sorted.getOrNull(currentIndex) ?: return
+
+        DeadlineBannerCard(deadline)
+
+        // Индикаторы (точки)
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            repeat(sorted.size) { i ->
+                Box(
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (i == currentIndex) Color.White
+                            else Color.White.copy(alpha = 0.4f)
+                        )
+                )
+            }
+        }
     }
-
+}
+fun formatTime(hoursLeft: Int): String {
+    return if (hoursLeft >= 24) {
+        val d = hoursLeft / 24
+        val h = hoursLeft % 24
+        "${d}d ${h}h"
+    } else {
+        "${hoursLeft}h"
+    }
+}
+@Composable
+fun DeadlineBannerCard(deadline: Deadline) {
+    val hoursLeft = calculateHoursLeft(deadline.date, deadline.time)
+    val totalHours = 7 * 24f // неделя как максимум
+    val progress = (1f - (hoursLeft / totalHours)).coerceIn(0f, 1f)
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (hoursLeft < 24) Color(0xFFF44336) else Color(0xFF2196F3)
         ),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 12.dp).height(72.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
     ) {
-        Row(modifier = Modifier.fillMaxSize().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(nearest.type, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
-            Text(nearest.subject, fontSize = 16.sp, color = Color.White.copy(alpha = 0.9f))
-            Spacer(modifier = Modifier.width(16.dp))
-            ProgressCircle(progress = progress, hoursLeft = hoursLeft.toInt(), color = nearest.color)
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(deadline.type, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(deadline.subject, color = Color.White.copy(0.9f))
+            }
+
+            ProgressCircle(
+                progress = progress,
+                hoursLeft = hoursLeft.toInt(),
+                color = Color.White
+            )
         }
     }
 }
-
 @Composable
 fun ProgressCircle(progress: Float, hoursLeft: Int, color: Color) {
     val animatedProgress by animateFloatAsState(targetValue = progress, label = "")
 
+    val timeText = if (hoursLeft >= 24) {
+        val days = hoursLeft / 24
+        val hours = hoursLeft % 24
+        "${days}d ${hours}h"
+    } else {
+        "${hoursLeft}h"
+    }
+
     Box(
         modifier = Modifier
-            .size(48.dp)
+            .size(56.dp)
             .drawBehind {
-                val strokeWidth = 6f
-                val radius = (size.minDimension - strokeWidth) / 2
-                val center = center
+                val strokeWidth = 8f
+                val radius = size.minDimension / 2 - strokeWidth
 
-                // Фон круга
+                // Фон
                 drawCircle(
                     color = Color.White.copy(alpha = 0.2f),
                     radius = radius,
-                    center = center,
                     style = Stroke(strokeWidth)
                 )
 
-                // Прогресс-дуга
+                // Прогресс
                 drawArc(
                     color = color,
                     startAngle = -90f,
                     sweepAngle = animatedProgress * 360f,
                     useCenter = false,
-                    topLeft = Offset(radius - strokeWidth/2, radius - strokeWidth/2),
-                    size = Size(strokeWidth * 2, strokeWidth * 2),
                     style = Stroke(strokeWidth)
                 )
             },
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "${hoursLeft / 24}d ${hoursLeft % 24}h",
-            fontSize = 10.sp,
+            text = timeText,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black.copy(alpha = 0.8f)
+            color = Color.White
         )
     }
 }
@@ -153,13 +225,6 @@ fun AcademicCalendarApp() {
         Deadline("Final Exam", "Physics 2", LocalDate(2026, 3, 28), "23:00", "Exams", Color(0xFFF44336))
     )
 
-    val gradesByWeek = mapOf(
-        "Week 1" to listOf(Grade("Physics 2", "H/W", "A", Color(0xFF4CAF50)), Grade("OOP", "Quiz", "B+", Color(0xFF2196F3))),
-        "Week 2" to listOf(Grade("Physics 2", "Lab", "A-", Color(0xFFFF9800)), Grade("OOP", "H/W", "A", Color(0xFF4CAF50))),
-        "Week 3" to listOf(Grade("Physics 2", "Quiz", "B", Color(0xFF2196F3)), Grade("OOP", "Lab", "A", Color(0xFFFF9800))),
-        "Week 4" to listOf(Grade("Physics 2", "H/W", "A+", Color(0xFF4CAF50)), Grade("OOP", "Quiz", "A-", Color(0xFF2196F3))),
-        "Week 5" to listOf(Grade("Physics 2", "Exam", "A", Color(0xFFF44336)), Grade("OOP", "Lab", "B+", Color(0xFFFF9800)), Grade("Physics 2", "H/W", "A-", Color(0xFF4CAF50)))
-    )
 
     val today = Clock.System.now()
         .toLocalDateTime(TimeZone.currentSystemDefault())
@@ -184,7 +249,7 @@ fun AcademicCalendarApp() {
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item { TopHeader() }
-        item { NearestDeadlineCard(filteredDeadlines) }
+        item { DeadlinesPager(filteredDeadlines) }
         item {
             FiltersRow(
                 hwEnabled = hwEnabled,
@@ -361,7 +426,7 @@ fun CalendarContent(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
-        item { NearestDeadlineCard(filteredDeadlines) }
+        item { DeadlinesPager(filteredDeadlines) }
         item {
             FiltersRow(hwEnabled, onHwToggle, quizEnabled, onQuizToggle, labEnabled, onLabToggle, examsEnabled, onExamsToggle)
         }
@@ -402,7 +467,7 @@ fun CalendarScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item { TopHeader() }
-        item { NearestDeadlineCard(filteredDeadlines) }
+        item { DeadlinesPager(filteredDeadlines) }
         item {
             FiltersRow(
                 hwEnabled, onHwToggle,
@@ -476,6 +541,7 @@ fun TopHeader() {
 
 @Composable
 fun CalendarSection(today: LocalDate, deadlines: List<Deadline>) {
+    var selectedText by remember { mutableStateOf<String?>(null) }
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
         shape = RoundedCornerShape(16.dp),
@@ -484,13 +550,29 @@ fun CalendarSection(today: LocalDate, deadlines: List<Deadline>) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Март 2026", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(12.dp))
-            CalendarGrid(today = today, deadlines = deadlines)
-        }
+            CalendarGrid(
+                today = today,
+                deadlines = deadlines,
+                onDayClick = { text -> selectedText = text }
+            )
+            selectedText?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = it,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.Gray
+                )
+            }}      // TODO maybe
     }
 }
 
 @Composable
-fun CalendarGrid(today: LocalDate, deadlines: List<Deadline>) {
+fun CalendarGrid(
+    today: LocalDate,
+    deadlines: List<Deadline>,
+    onDayClick: (String) -> Unit
+) {
     val monthStart = LocalDate(2026, 3, 1) // 1 марта 2026 - понедельник
     val daysInMonth = 31
     val firstDayOffset = 0 // Понедельник
@@ -524,7 +606,14 @@ fun CalendarGrid(today: LocalDate, deadlines: List<Deadline>) {
                             dayDate = dayDate,
                             isToday = dayDate == today,
                             deadlines = dayDeadlines,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    if (dayDeadlines.isNotEmpty()) {
+                                        val text = dayDeadlines.joinToString { "${it.subject} ${it.title}" }
+                                        onDayClick(text)
+                                    }
+                                }
                         )
                     } else {
                         Box(modifier = Modifier.weight(1f).aspectRatio(1f))
@@ -558,8 +647,7 @@ fun DayCellWithDeadlines(
                     }
                     else -> Color.White
                 }
-            )
-            .clickable { },
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -698,7 +786,7 @@ fun DeadlineCard(deadline: Deadline) {
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "$daysLeft d ${remainingHours.toInt()} h left",
+                    text = "${formatTime(hoursLeft.toInt())} left",
                     fontSize = 12.sp,
                     color = if (hoursLeft < 24) Color(0xFFF44336) else deadline.color,
                     fontWeight = FontWeight.Medium
@@ -707,10 +795,6 @@ fun DeadlineCard(deadline: Deadline) {
             Text(deadline.date.dayOfMonth.toString(), fontSize = 28.sp, fontWeight = FontWeight.Bold, color = deadline.color)
         }
     }
-}
-fun calculateHoursLeft(today: LocalDate, deadlineDate: LocalDate): Float {
-    return (deadlineDate.dayOfYear - today.dayOfYear) * 24f +
-            ((deadlineDate.dayOfMonth - today.dayOfMonth) * 24f).coerceAtLeast(0f)
 }
 
 data class Deadline(
@@ -820,7 +904,7 @@ fun GradeCard(grade: Grade) {
                 Text(
                     text = grade.score,
                     color = Color.White,
-                    fontSize = 20.sp,
+                    fontSize = if (grade.score.length > 5) 14.sp else 18.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
