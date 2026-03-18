@@ -137,36 +137,35 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AcademicCalendarApp() {
-    var currentScreen by remember { mutableStateOf(0) } // 0=Calendar, 1=Grades
+    // ← ВСЕ ПЕРЕМЕННЫЕ СНАЧАЛА
+    var listContent by remember { mutableStateOf("deadlines") }
     var hwEnabled by remember { mutableStateOf(true) }
     var quizEnabled by remember { mutableStateOf(true) }
     var labEnabled by remember { mutableStateOf(true) }
     var examsEnabled by remember { mutableStateOf(true) }
 
-    val deadlines = remember {
-        listOf(
-            Deadline("Homework 2", "Physics 2", LocalDate(2026, 3, 18), "23:00", "H/W", Color(0xFF4CAF50)),
-            Deadline("Quiz 2", "Physics 2", LocalDate(2026, 3, 20), "23:00", "Quiz", Color(0xFF2196F3)),
-            Deadline("Quiz 2", "Physics 2", LocalDate(2026, 3, 22), "23:00", "Quiz", Color(0xFF2196F3)),
-            Deadline("Laboratory", "OOP", LocalDate(2026, 3, 24), "23:00", "Lab", Color(0xFFFF9800)),
-            Deadline("Laboratory", "OOP", LocalDate(2026, 3, 26), "23:00", "Lab", Color(0xFFFF9800)),
-            Deadline("Final Exam", "Physics 2", LocalDate(2026, 3, 28), "23:00", "Exams", Color(0xFFF44336))
-        )
-    }
+    val deadlines = listOf(
+        Deadline("Homework 2", "Physics 2", LocalDate(2026, 3, 18), "23:00", "H/W", Color(0xFF4CAF50)),
+        Deadline("Quiz 2", "Physics 2", LocalDate(2026, 3, 20), "23:00", "Quiz", Color(0xFF2196F3)),
+        Deadline("Quiz 2", "Physics 2", LocalDate(2026, 3, 22), "23:00", "Quiz", Color(0xFF2196F3)),
+        Deadline("Laboratory", "OOP", LocalDate(2026, 3, 24), "23:00", "Lab", Color(0xFFFF9800)),
+        Deadline("Laboratory", "OOP", LocalDate(2026, 3, 26), "23:00", "Lab", Color(0xFFFF9800)),
+        Deadline("Final Exam", "Physics 2", LocalDate(2026, 3, 28), "23:00", "Exams", Color(0xFFF44336))
+    )
 
-    val gradesByWeek = remember {
-        mapOf(
-            "Week 1" to listOf(Grade("Physics 2", "H/W", "A", Color(0xFF4CAF50)), Grade("OOP", "Quiz", "B+", Color(0xFF2196F3))),
-            "Week 2" to listOf(Grade("Physics 2", "Lab", "A-", Color(0xFFFF9800)), Grade("OOP", "H/W", "A", Color(0xFF4CAF50))),
-            "Week 3" to listOf(Grade("Physics 2", "Quiz", "B", Color(0xFF2196F3)), Grade("OOP", "Lab", "A", Color(0xFFFF9800))),
-            "Week 4" to listOf(Grade("Physics 2", "H/W", "A+", Color(0xFF4CAF50)), Grade("OOP", "Quiz", "A-", Color(0xFF2196F3))),
-            "Week 5" to listOf(Grade("Physics 2", "Exam", "A", Color(0xFFF44336)), Grade("OOP", "Lab", "B+", Color(0xFFFF9800)), Grade("Physics 2", "H/W", "A-", Color(0xFF4CAF50)))
-        )
-    }
+    val gradesByWeek = mapOf(
+        "Week 1" to listOf(Grade("Physics 2", "H/W", "A", Color(0xFF4CAF50)), Grade("OOP", "Quiz", "B+", Color(0xFF2196F3))),
+        "Week 2" to listOf(Grade("Physics 2", "Lab", "A-", Color(0xFFFF9800)), Grade("OOP", "H/W", "A", Color(0xFF4CAF50))),
+        "Week 3" to listOf(Grade("Physics 2", "Quiz", "B", Color(0xFF2196F3)), Grade("OOP", "Lab", "A", Color(0xFFFF9800))),
+        "Week 4" to listOf(Grade("Physics 2", "H/W", "A+", Color(0xFF4CAF50)), Grade("OOP", "Quiz", "A-", Color(0xFF2196F3))),
+        "Week 5" to listOf(Grade("Physics 2", "Exam", "A", Color(0xFFF44336)), Grade("OOP", "Lab", "B+", Color(0xFFFF9800)), Grade("Physics 2", "H/W", "A-", Color(0xFF4CAF50)))
+    )
 
-    val today = LocalDate(2026, 3, 16)
-    val filteredDeadlines = deadlines.filter {
-        when (it.type) {
+    val today = Clock.System.now()
+        .toLocalDateTime(TimeZone.currentSystemDefault())
+        .date
+        val filteredDeadlines = deadlines.filter { deadline ->
+        when (deadline.type) {
             "H/W" -> hwEnabled
             "Quiz" -> quizEnabled
             "Lab" -> labEnabled
@@ -175,60 +174,172 @@ fun AcademicCalendarApp() {
         }
     }.sortedBy { it.date.daysUntil(today) }
 
-    Column {
-        // Верхняя панель с кнопками навигации (всегда видна)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            TextButton(
-                onClick = { currentScreen = 0 },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Дедлайны", fontSize = 16.sp, fontWeight = if (currentScreen == 0) FontWeight.Bold else FontWeight.Normal)
-            }
-            TextButton(
-                onClick = { currentScreen = 1 },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Оценки", fontSize = 16.sp, fontWeight = if (currentScreen == 1) FontWeight.Bold else FontWeight.Normal)
-            }
+    // ← LazyColumn ПОСЛЕ всех переменных
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5))
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(vertical = 16.dp)
+    ) {
+        item { TopHeader() }
+        item { NearestDeadlineCard(filteredDeadlines) }
+        item {
+            FiltersRow(
+                hwEnabled = hwEnabled,
+                onHwToggle = { hwEnabled = !hwEnabled },
+                quizEnabled = quizEnabled,
+                onQuizToggle = { quizEnabled = !quizEnabled },
+                labEnabled = labEnabled,
+                onLabToggle = { labEnabled = !labEnabled },
+                examsEnabled = examsEnabled,
+                onExamsToggle = { examsEnabled = !examsEnabled }
+            )
         }
-
-        // Контент с надежными свайпами
+        item { CalendarSection(today = today, deadlines = filteredDeadlines) }
+        item {
+            ContentIndicator(isDeadlinesMode = listContent == "deadlines")
+        }
+        item {
+            ListContent(
+                contentType = listContent,
+                deadlines = filteredDeadlines,
+                gradesByWeek = gradesByWeek,
+                onSwipeRightToLeft = { listContent = "grades" },
+                onSwipeLeftToRight = { listContent = "deadlines" }
+            )
+        }
+    }
+}
+@Composable
+fun ContentIndicator(isDeadlinesMode: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Первая точка — Дедлайны
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { offset -> },
-                        onHorizontalDrag = { change, dragAmount -> },
-                        onDragEnd = {
-                            // СВАЙП ВПРАВО (dragAmount > 0) → Оценки
-                            if (currentScreen == 0) currentScreen = 1
-                            // СВАЙП ВЛЕВО (dragAmount < 0) → Дедлайны
-                            else currentScreen = 0
-                        },
-                        onDragCancel = { }
-                    )
-                }
-        ) {
-            when (currentScreen) {
-                0 -> CalendarContent(
-                    filteredDeadlines = filteredDeadlines,
-                    today = today,
-                    hwEnabled = hwEnabled,
-                    onHwToggle = { hwEnabled = !hwEnabled },
-                    quizEnabled = quizEnabled,
-                    onQuizToggle = { quizEnabled = !quizEnabled },
-                    labEnabled = labEnabled,
-                    onLabToggle = { labEnabled = !labEnabled },
-                    examsEnabled = examsEnabled,
-                    onExamsToggle = { examsEnabled = !examsEnabled }
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isDeadlinesMode) Color(0xFF2196F3) else Color.Gray.copy(alpha = 0.3f)
                 )
-                1 -> GradesContent(gradesByWeek)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        // Вторая точка — Оценки
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(
+                    if (!isDeadlinesMode) Color(0xFF2196F3) else Color.Gray.copy(alpha = 0.3f)
+                )
+        )
+    }
+}
+@Composable
+fun ListContent(
+    contentType: String,
+    deadlines: List<Deadline>,
+    gradesByWeek: Map<String, List<Grade>>,
+    onSwipeRightToLeft: () -> Unit,
+    onSwipeLeftToRight: () -> Unit
+) {
+    var totalDragAmount by remember { mutableStateOf(0f) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { _ -> totalDragAmount = 0f },
+                    onHorizontalDrag = { _, dragAmount ->
+                        totalDragAmount += dragAmount
+                    },
+                    onDragEnd = {
+                        if (totalDragAmount < -50f) onSwipeRightToLeft()  // Справа налево → Оценки
+                        else if (totalDragAmount > 50f) onSwipeLeftToRight() // Слева направо → Дедлайны
+                        totalDragAmount = 0f
+                    },
+                    onDragCancel = { totalDragAmount = 0f }
+                )
+            },
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        when (contentType) {
+            "deadlines" -> {
+                // ВЕСЬ список дедлайнов (НЕ скроллится сам)
+                deadlines.forEach { deadline ->
+                    DeadlineCard(deadline)
+                }
+            }
+            "grades" -> {
+                // ВСЕ недели оценок (НЕ скроллится сам)
+                gradesByWeek.forEach { (week, grades) ->
+                    Text(
+                        text = week,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                    grades.forEach { grade ->
+                        GradeCard(grade)
+                    }
+                }
+            }
+        }
+    }
+}
+@Composable
+fun DeadlinesBottomContent(deadlines: List<Deadline>, today: LocalDate) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        // Календарь ВСЕГДА виден вверху
+        CalendarSection(today = today, deadlines = deadlines)
+
+        // Список дедлайнов внизу (скроллится если много)
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f), // Занимает оставшееся место
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(vertical = 8.dp)
+        ) {
+            items(deadlines) { deadline ->
+                DeadlineCard(deadline)
+            }
+        }
+    }
+}
+
+@Composable
+fun GradesBottomContent(gradesByWeek: Map<String, List<Grade>>) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(0.dp) // Убрал отступы снизу
+    ) {
+        gradesByWeek.forEach { (week, grades) ->
+            item {
+                Text(
+                    week,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            items(grades) { grade ->
+                GradeCard(grade)
             }
         }
     }
@@ -635,25 +746,25 @@ data class Grade(
 )
 val gradesByWeek = mapOf(
     "Week 1" to listOf(
-        Grade("Physics 2", "H/W", "A", Color(0xFF4CAF50)),
-        Grade("OOP", "Quiz", "B+", Color(0xFF2196F3))
+        Grade("Physics 2", "H/W", "85/100", Color(0xFF4CAF50)),
+        Grade("OOP", "Quiz", "36/40", Color(0xFF2196F3))
     ),
     "Week 2" to listOf(
-        Grade("Physics 2", "Lab", "A-", Color(0xFFFF9800)),
-        Grade("OOP", "H/W", "A", Color(0xFF4CAF50))
+        Grade("Physics 2", "Lab", "92/100", Color(0xFFFF9800)),
+        Grade("OOP", "H/W", "78/100", Color(0xFF4CAF50))
     ),
     "Week 3" to listOf(
-        Grade("Physics 2", "Quiz", "B", Color(0xFF2196F3)),
-        Grade("OOP", "Lab", "A", Color(0xFFFF9800))
+        Grade("Physics 2", "Quiz", "32/40", Color(0xFF2196F3)),
+        Grade("OOP", "Lab", "88/100", Color(0xFFFF9800))
     ),
     "Week 4" to listOf(
-        Grade("Physics 2", "H/W", "A+", Color(0xFF4CAF50)),
-        Grade("OOP", "Quiz", "A-", Color(0xFF2196F3))
+        Grade("Physics 2", "H/W", "95/100", Color(0xFF4CAF50)),
+        Grade("OOP", "Quiz", "38/40", Color(0xFF2196F3))
     ),
     "Week 5" to listOf(
-        Grade("Physics 2", "Exam", "A", Color(0xFFF44336)),
-        Grade("OOP", "Lab", "B+", Color(0xFFFF9800)),
-        Grade("Physics 2", "H/W", "A-", Color(0xFF4CAF50))
+        Grade("Physics 2", "Exam", "91/100", Color(0xFFF44336)),
+        Grade("OOP", "Lab", "82/100", Color(0xFFFF9800)),
+        Grade("Physics 2", "H/W", "87/100", Color(0xFF4CAF50))
     )
 )
 @Composable
