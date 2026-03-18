@@ -292,6 +292,8 @@ fun AcademicCalendarApp() {
             color = Color(0xFFFF9800)
         )
     )
+
+
     val filteredDeadlines = deadlines.filter { deadline ->
         deadline.date >= todayDate && when (deadline.type) {
             "H/W" -> hwEnabled
@@ -301,22 +303,19 @@ fun AcademicCalendarApp() {
         }
     }.sortedBy { it.date }
 
+    val upcomingDeadlines = deadlines.filter { it.date >= todayDate }
+        .sortedBy { it.date }.take(3)
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF5F5F5))
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item { TopHeader() }
-
-        // Pager с ближайшими дедлайнами
-        item {
-            val upcomingDeadlines = deadlines.filter { it.date >= todayDate }
-                .sortedBy { it.date }.take(3)
-            DeadlinesPager(upcomingDeadlines)
-        }
+        item { DeadlinesPager(deadlines = upcomingDeadlines) }
         item {
             FiltersRow(
                 hwEnabled = hwEnabled,
@@ -327,16 +326,8 @@ fun AcademicCalendarApp() {
                 onLabToggle = { labEnabled = !labEnabled }
             )
         }
-        // КАЛЕНДАРЬ
-        item { CalendarSection(today = todayDate, deadlines = filteredDeadlines, modifier = Modifier.padding(top = 4.dp)) }
-
-        // ФИЛЬТРЫ БЛИЗКО К КАЛЕНДАРЮ (убрал padding bottom)
-
-
-        // Переключатель Deadlines/Grades
+        item { CalendarSection(today = todayDate, deadlines = filteredDeadlines) }
         item { SwitchButtons(selected = listContent, onSelect = { listContent = it }) }
-
-        // Контент
         item {
             when (listContent) {
                 "deadlines" -> {
@@ -353,6 +344,7 @@ fun AcademicCalendarApp() {
                         }
                     }
                 }
+
                 "grades" -> {
                     val sortedWeeks = gradesByWeek.keys
                         .sortedByDescending { it.removePrefix("Week ").toInt() }
@@ -376,24 +368,80 @@ fun AcademicCalendarApp() {
 }
 @Composable
 fun SwitchButtons(selected: String, onSelect: (String) -> Unit) {
-    Row(
+    val blue = Color(0xFF1565C0)
+    val isDeadlines = selected == "deadlines"
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly // ← Равномерно
+            .height(50.dp),
+        contentAlignment = Alignment.Center
     ) {
-        ToggleButton(
-            text = "Deadlines",
-            isSelected = selected == "deadlines",
-            onClick = { onSelect("deadlines") },
-            modifier = Modifier.weight(1f) // ← Одинаковый размер
+        // Фон
+        Box(
+            modifier = Modifier
+                .width(220.dp)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFFE3F2FD))
         )
-        Spacer(modifier = Modifier.width(16.dp))
-        ToggleButton(
-            text = "Grades",
-            isSelected = selected == "grades",
-            onClick = { onSelect("grades") },
-            modifier = Modifier.weight(1f) // ← Одинаковый размер
+
+        val offset by animateFloatAsState(
+            targetValue = if (isDeadlines) -1f else 1f,
+            label = ""
+        )
+
+        // Индикатор
+        Box(
+            modifier = Modifier
+                .offset(x = (offset * 55).dp) // 👈 110 / 2 = 55
+                .width(100.dp)
+                .height(42.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(blue)
+        )
+
+        Row(
+            modifier = Modifier.width(220.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SegmentItem(
+                text = "Deadlines",
+                isSelected = isDeadlines,
+                onClick = { onSelect("deadlines") },
+                modifier = Modifier.width(100.dp)
+            )
+
+            SegmentItem(
+                text = "Grades",
+                isSelected = !isDeadlines,
+                onClick = { onSelect("grades") },
+                modifier = Modifier.width(100.dp)
+            )
+        }
+    }
+}
+@Composable
+fun SegmentItem(
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier
+) {
+    val blue = Color(0xFF1565C0)
+
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = if (isSelected) Color.White else blue,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
@@ -403,26 +451,26 @@ fun ToggleButton(
     text: String,
     isSelected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier // ← Добавил параметр
+    modifier: Modifier = Modifier
 ) {
     val blue = Color(0xFF1565C0)
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) blue else Color.White
         ),
-        modifier = modifier // ← Используем переданный modifier
-            .height(48.dp) // ← Фиксированная высота
+        modifier = modifier
+            .height(28.dp)
             .clickable { onClick() }
     ) {
         Text(
             text = text,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp),
+                .fillMaxSize(),
             color = if (isSelected) Color.White else blue,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            fontSize = 15.sp
         )
     }
 }
@@ -544,7 +592,7 @@ fun GradesBottomContent(gradesByWeek: Map<String, List<Grade>>) {
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(0.dp) // Убрал отступы снизу
     ) {
         gradesByWeek.forEach { (week, grades) ->
@@ -701,24 +749,28 @@ fun CalendarSection(today: LocalDate, deadlines: List<Deadline>, modifier: Modif
     var dragOffset by remember { mutableStateOf(0f) }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Column(modifier = Modifier
-            .padding(16.dp)
-            .pointerInput(Unit) {
-            detectHorizontalDragGestures(
-                onHorizontalDrag = { _, dragAmount ->
-                    dragOffset += dragAmount
-                },
-                onDragEnd = {
-                    if (dragOffset < -100 && currentMonthOffset < 2) currentMonthOffset++
-                    if (dragOffset > 100 && currentMonthOffset > 0) currentMonthOffset--
-                    dragOffset = 0f
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { _, dragAmount ->
+                            dragOffset += dragAmount
+                        },
+                        onDragEnd = {
+                            if (dragOffset < -100 && currentMonthOffset < 2) currentMonthOffset++
+                            if (dragOffset > 100 && currentMonthOffset > 0) currentMonthOffset--
+                            dragOffset = 0f
+                        }
+                    )
                 }
-            )
-        } ) {
+        ) {
             val monthNames = listOf(
                 "Январь","Февраль","Март","Апрель","Май","Июнь",
                 "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"
@@ -762,7 +814,8 @@ fun CalendarSection(today: LocalDate, deadlines: List<Deadline>, modifier: Modif
                     fontWeight = FontWeight.Medium,
                     color = Color.Gray
                 )
-            }}      // TODO maybe
+            }
+        }
     }
 }
 
