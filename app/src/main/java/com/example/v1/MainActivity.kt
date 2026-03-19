@@ -200,6 +200,7 @@ fun ProgressCircle(progress: Float, hoursLeft: Int, color: Color) {
         )
     }
 }
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -216,7 +217,7 @@ fun AcademicCalendarApp() {
     var hwEnabled by remember { mutableStateOf(true) }
     var quizEnabled by remember { mutableStateOf(true) }
     var labEnabled by remember { mutableStateOf(true) }
-
+    var currentScreen by remember { mutableStateOf("calendar") }
     val todayDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     val deadlines = listOf(
         Deadline(
@@ -225,7 +226,7 @@ fun AcademicCalendarApp() {
             date = todayDate.minus(3, DateTimeUnit.DAY),
             time = "10:00",
             type = "H/W",
-            color = Color(0xFF2196F3)
+            color = Color(0xFF2196F3)   
         ),
         Deadline(
             title = "Homework 1",
@@ -306,63 +307,65 @@ fun AcademicCalendarApp() {
     val upcomingDeadlines = deadlines.filter { it.date >= todayDate }
         .sortedBy { it.date }.take(3)
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(vertical = 16.dp)
-    ) {
-        item { TopHeader() }
-        item { DeadlinesPager(deadlines = upcomingDeadlines) }
-        item {
-            FiltersRow(
-                hwEnabled = hwEnabled,
-                onHwToggle = { hwEnabled = !hwEnabled },
-                quizEnabled = quizEnabled,
-                onQuizToggle = { quizEnabled = !quizEnabled },
-                labEnabled = labEnabled,
-                onLabToggle = { labEnabled = !labEnabled }
-            )
-        }
-        item { CalendarSection(today = todayDate, deadlines = filteredDeadlines) }
-        item { SwitchButtons(selected = listContent, onSelect = { listContent = it }) }
-        item {
-            when (listContent) {
-                "deadlines" -> {
-                    if (filteredDeadlines.isEmpty()) {
-                        Text(
-                            text = "Нет дедлайнов",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            color = Color.Gray
-                        )
-                    } else {
-                        filteredDeadlines.forEach { deadline ->
-                            DeadlineCard(deadline)
-                        }
-                    }
+    when (currentScreen) {
+
+        "calendar" -> {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFF5F5F5))
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
+            ) {
+                item { TopHeader() }
+
+                item { DeadlinesPager(deadlines = upcomingDeadlines) }
+
+                item {
+                    FiltersRow(
+                        hwEnabled = hwEnabled,
+                        onHwToggle = { hwEnabled = !hwEnabled },
+                        quizEnabled = quizEnabled,
+                        onQuizToggle = { quizEnabled = !quizEnabled },
+                        labEnabled = labEnabled,
+                        onLabToggle = { labEnabled = !labEnabled },
+
+                        // 👇 ВАЖНО
+                        onTimetableClick = { currentScreen = "timetable" }
+                    )
                 }
 
-                "grades" -> {
-                    val sortedWeeks = gradesByWeek.keys
-                        .sortedByDescending { it.removePrefix("Week ").toInt() }
+                item { CalendarSection(today = todayDate, deadlines = filteredDeadlines) }
 
-                    sortedWeeks.forEach { week ->
-                        val grades = gradesByWeek[week] ?: emptyList()
-                        Text(
-                            text = week,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                        grades.forEach { grade ->
-                            GradeCard(grade)
+                item { SwitchButtons(selected = listContent, onSelect = { listContent = it }) }
+
+                item {
+                    when (listContent) {
+                        "deadlines" -> {
+                            filteredDeadlines.forEach { DeadlineCard(it) }
+                        }
+
+                        "grades" -> {
+                            val sortedWeeks = gradesByWeek.keys
+                                .sortedByDescending { it.removePrefix("Week ").toInt() }
+
+                            sortedWeeks.forEach { week ->
+                                val grades = gradesByWeek[week] ?: emptyList()
+                                Text(week, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                grades.forEach { GradeCard(it) }
+                            }
                         }
                     }
                 }
             }
+        }
+
+        "timetable" -> {
+            // 👇 ТВОЙ экран
+            TimetableScreenWithBack(
+                onBack = { currentScreen = "calendar" }
+            )
         }
     }
 }
@@ -618,6 +621,7 @@ fun CalendarContent(
     quizEnabled: Boolean, onQuizToggle: () -> Unit,
     labEnabled: Boolean, onLabToggle: () -> Unit,
 ) {
+    var currentScreen by remember { mutableStateOf("calendar") }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -628,7 +632,7 @@ fun CalendarContent(
     ) {
         item { DeadlinesPager(filteredDeadlines) }
         item {
-            FiltersRow(hwEnabled, onHwToggle, quizEnabled, onQuizToggle, labEnabled, onLabToggle)
+            FiltersRow(hwEnabled, onHwToggle, quizEnabled, onQuizToggle, labEnabled, onLabToggle,onTimetableClick = { currentScreen = "timetable" })
         }
         item { CalendarSection(today = today, deadlines = filteredDeadlines) }
         items(filteredDeadlines) { DeadlineCard(it) }
@@ -661,6 +665,7 @@ fun CalendarScreen(
     labEnabled: Boolean, onLabToggle: () -> Unit,
     examsEnabled: Boolean, onExamsToggle: () -> Unit
 ) {
+    var currentScreen by remember { mutableStateOf("calendar") }
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Color(0xFFF5F5F5)),
         contentPadding = PaddingValues(16.dp),
@@ -673,6 +678,7 @@ fun CalendarScreen(
                 hwEnabled, onHwToggle,
                 quizEnabled, onQuizToggle,
                 labEnabled, onLabToggle,
+                onTimetableClick = { currentScreen = "timetable" }
             )
         }
         item { CalendarSection(today = today, deadlines = filteredDeadlines) }
@@ -1023,7 +1029,8 @@ fun DayCell(day: Int, isToday: Boolean, hasDeadline: Boolean, modifier: Modifier
 fun FiltersRow(
     hwEnabled: Boolean, onHwToggle: () -> Unit,
     quizEnabled: Boolean, onQuizToggle: () -> Unit,
-    labEnabled: Boolean, onLabToggle: () -> Unit
+    labEnabled: Boolean, onLabToggle: () -> Unit,
+    onTimetableClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -1049,8 +1056,9 @@ fun FiltersRow(
             contentDescription = "Timetable",
             tint = Color(0xFF1565C0),
             modifier = Modifier
-                .padding(end = 16.dp) // ← Точно как у календаря
+                .padding(end = 16.dp)
                 .size(28.dp)
+                .clickable { onTimetableClick() }
         )
     }
 }
