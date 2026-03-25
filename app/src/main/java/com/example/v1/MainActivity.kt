@@ -226,7 +226,7 @@ fun AcademicCalendarApp() {
             date = todayDate.minus(3, DateTimeUnit.DAY),
             time = "10:00",
             type = "H/W",
-            color = Color(0xFF2196F3)   
+            color = Color(0xFF2196F3)
         ),
         Deadline(
             title = "Homework 1",
@@ -238,22 +238,22 @@ fun AcademicCalendarApp() {
         ),
         Deadline(
             title = "Homework 2",
-            subject = "Physics 2",
+            subject = "Calculus 2",
             date = LocalDate(2026, 3, 19),
-            time = "23:00",
+            time = "22:00",
             type = "H/W",
             color = Color(0xFF4CAF50)
         ),
         Deadline(
             title = "Quiz 2",
-            subject = "Physics 2",
+            subject = "AE 2",
             date = LocalDate(2026, 3, 20),
             time = "23:00",
             type = "Quiz",
             color = Color(0xFF2196F3)
         ),
         Deadline(
-            title = "Quiz 2",
+            title = "Quiz 3",
             subject = "Physics 2",
             date = LocalDate(2026, 3, 22),
             time = "23:00",
@@ -1219,7 +1219,6 @@ val gradesByWeek = mapOf(
     "Week 5" to listOf(
         Grade("Calculus 2", "H/W", "?", Color.Gray),
         Grade("Physics 2", "Quiz", "?", Color.Gray),
-        Grade("Physics 2", "Exam", "91/100", Color(0xFFF44336)),
         Grade("OOP", "Lab", "82/100", Color(0xFFFF9800)),
         Grade("Physics 2", "H/W", "87/100", Color(0xFF4CAF50))
     ),

@@ -67,8 +67,8 @@ data class Lesson(
     val startTime: String,
     val endTime: String,
     val color: Color,
-    val day: String
 )
+/*
 fun getWeekSchedule(startDate: LocalDate): Map<LocalDate, List<Lesson>> {
     return (0..6).associate { offset ->
         val date = startDate.plus(offset, DateTimeUnit.DAY)
@@ -86,10 +86,12 @@ fun getWeekSchedule(startDate: LocalDate): Map<LocalDate, List<Lesson>> {
         date to lessons
     }
 }
+
+ */
 @Composable
 fun TimetableScreen() {
     val startDate = LocalDate(2026, 3, 19)
-    val schedule = getWeekSchedule(startDate)
+    val schedule = remember { generateWeekSchedule(startDate) }
 
     var selectedDate by remember { mutableStateOf(startDate) }
 
@@ -99,21 +101,28 @@ fun TimetableScreen() {
             .background(Color(0xFFF3F5F9))
             .padding(top = 16.dp)
     ) {
+        // 📅 Месяц и год
+        Text(
+            text = "${monthName(startDate.month.value)} ${startDate.year}",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        )
 
-        // 📅 Даты сверху
+        // Дни недели
         WeekHeader(
             startDate = startDate,
             selectedDate = selectedDate,
             onDateSelected = { selectedDate = it }
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(28.dp)) // сдвигаем карточки пар ниже
 
-        // 📚 Список занятий
         val lessons = schedule[selectedDate] ?: emptyList()
 
         LazyColumn(
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(lessons) { lesson ->
@@ -122,6 +131,26 @@ fun TimetableScreen() {
         }
     }
 }
+
+// Вспомогательная функция для названия месяца
+fun monthName(month: Int): String {
+    return when (month) {
+        1 -> "January"
+        2 -> "February"
+        3 -> "March"
+        4 -> "April"
+        5 -> "May"
+        6 -> "June"
+        7 -> "July"
+        8 -> "August"
+        9 -> "September"
+        10 -> "October"
+        11 -> "November"
+        12 -> "December"
+        else -> ""
+    }
+}
+
 @Composable
 fun WeekHeader(
     startDate: LocalDate,
@@ -251,10 +280,19 @@ fun TimeBubble(time: String) {
 }
 @Composable
 fun TimetableScreenWithBack(onBack: () -> Unit) {
-    val lessons = remember { generateWeekSchedule() }
+    val startDate = LocalDate(2026, 3, 19)
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    val schedule = remember { generateWeekSchedule(startDate) }
 
+    var selectedDate by remember { mutableStateOf(startDate) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF3F5F9))
+    ) {
+
+        // 🔙 Назад
         Text(
             text = "← Back",
             modifier = Modifier
@@ -262,24 +300,24 @@ fun TimetableScreenWithBack(onBack: () -> Unit) {
                 .padding(16.dp)
         )
 
+        // 📅 Дни недели (как на скрине)
+        WeekHeader(
+            startDate = startDate,
+            selectedDate = selectedDate,
+            onDateSelected = { selectedDate = it }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        val lessons = schedule[selectedDate] ?: emptyList()
+
+        // 📚 Карточки (как раньше)
         LazyColumn(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val grouped = lessons.groupBy { it.day }
-
-            grouped.forEach { (day, lessonsForDay) ->
-                item {
-                    Text(
-                        text = day,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                items(lessonsForDay) { lesson ->
-                    LessonCard(lesson)
-                }
+            items(lessons) { lesson ->
+                LessonCard(lesson)
             }
         }
     }
@@ -309,22 +347,17 @@ val lessonTimes = listOf(
     "13:30 - 14:50",
     "15:00 - 16:20"
 )
-fun generateWeekSchedule(): List<Lesson> {
-    val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri")
+fun generateWeekSchedule(startDate: LocalDate): Map<LocalDate, List<Lesson>> {
+    return (0..6).associate { offset ->
+        val date = startDate.plus(offset, DateTimeUnit.DAY)
 
-    val lessons = mutableListOf<Lesson>()
-
-    days.forEach { day ->
         val lessonsPerDay = (2..4).random()
-
         val usedTimes = lessonTimes.shuffled().take(lessonsPerDay)
 
-        usedTimes.forEach { time ->
+        val lessons = usedTimes.map { time ->
             val (subject, teacher) = subjects.random()
-
             val start = time.substringBefore(" - ")
             val end = time.substringAfter(" - ")
-
             val color = when (subject) {
                 "Calculus 2" -> Color(0xFFFFC107)
                 "Physics 2" -> Color(0xFF2196F3)
@@ -335,19 +368,9 @@ fun generateWeekSchedule(): List<Lesson> {
                 else -> Color.Gray
             }
 
-            lessons.add(
-                Lesson(
-                    subject = subject,
-                    teacher = teacher,
-                    room = randomRoom(),
-                    startTime = start,
-                    endTime = end,
-                    color = color,
-                    day = day
-                )
-            )
+            Lesson(subject, teacher, randomRoom(), start, end, color)
         }
-    }
 
-    return lessons
+        date to lessons
+    }
 }
