@@ -139,7 +139,7 @@ fun DeadlineBannerCard(deadline: Deadline) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(110.dp)
+            .height(130.dp)
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(gradient)
@@ -147,42 +147,49 @@ fun DeadlineBannerCard(deadline: Deadline) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(18.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 // 🔥 Urgent badge
-                if (isUrgent) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(Color.White.copy(alpha = 0.2f))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "Urgent deadline",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.2f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "Urgent deadline",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
 
-                Text(
-                    text = deadline.type,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                Spacer(modifier = Modifier.height(6.dp))
 
-                Text(
-                    text = deadline.subject,
-                    fontSize = 16.sp,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = deadline.type,
+                        fontSize = if (isUrgent) 22.sp else 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1
+                    )
+
+                    Text(
+                        text = deadline.subject,
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.9f),
+                        maxLines = 1
+                    )
+                }
             }
 
             ProgressCircle(
@@ -345,7 +352,7 @@ fun AcademicCalendarApp() {
         Deadline(
             title = "Quiz 3",
             subject = "Physics 2",
-            date = LocalDate(2026, 3, 27),
+            date = LocalDate(2026, 3, 29),
             time = "10:00",
             type = "Quiz",
             color = Color(0xFF2196F3)
@@ -353,7 +360,7 @@ fun AcademicCalendarApp() {
         Deadline(
             title = "Laboratory",
             subject = "OOP",
-            date = LocalDate(2026, 3, 24),
+            date = LocalDate(2026, 3, 29),
             time = "23:00",
             type = "Lab",
             color = Color(0xFFFF9800)
@@ -918,7 +925,6 @@ fun TopHeader() {
         Spacer(modifier = Modifier.width(12.dp))
         Column {
             Text("Рахмонов Санжар", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text("Urgent deadlines", fontSize = 14.sp, color = Color.Gray)
         }
     }
 }
@@ -1173,13 +1179,6 @@ fun DayCellWithDeadlines(
                         .background(deadline.color)
                 )
             }
-                if (dayDate.monthNumber == 4 && day == 10) {
-                    Text("🔥", fontSize = 10.sp)
-                }
-                if (dayDate.monthNumber == 4 && day == 18) {
-                    Text("📚", fontSize = 10.sp)
-                }
-
         }
     }
 }
