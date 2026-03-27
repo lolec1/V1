@@ -299,6 +299,7 @@ fun AcademicCalendarApp() {
     var projectEnabled by remember { mutableStateOf(true) }
     var labEnabled by remember { mutableStateOf(true) }
     var currentScreen by remember { mutableStateOf("calendar") }
+    var selectedSubject by remember { mutableStateOf<String?>(null) }
     val todayDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     val deadlines = listOf(
         Deadline(
@@ -312,15 +313,15 @@ fun AcademicCalendarApp() {
         Deadline(
             title = "Homework 1",
             subject = "Calculus 2",
-            date = LocalDate(2026, 3, 26),
-            time = "10:00",
+            date = LocalDate(2026, 3, 27),
+            time = "23:00",
             type = "H/W",
             color = Color(0xFF2196F3)
         ),
         Deadline(
             title = "Homework 1",
             subject = "Physics 2",
-            date = LocalDate(2026, 3, 27),
+            date = LocalDate(2026, 3, 28),
             time = "12:00",
             type = "H/W",
             color = Color(0xFF2196F3)
@@ -424,7 +425,7 @@ fun AcademicCalendarApp() {
                         quizEnabled = quizEnabled,
                         onQuizToggle = { quizEnabled = !quizEnabled },
                         labEnabled = labEnabled,
-                        onLabToggle = { labEnabled = !labEnabled },projectEnabled = projectEnabled,
+                        onLabToggle = { labEnabled = !labEnabled }, projectEnabled = projectEnabled,
                         onProjectToggle = { projectEnabled = !projectEnabled },
 
                         // 👇 ВАЖНО
@@ -448,7 +449,12 @@ fun AcademicCalendarApp() {
                             sortedWeeks.forEach { week ->
                                 val grades = gradesByWeek[week] ?: emptyList()
                                 Text(week, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                grades.forEach { GradeCard(it) }
+                                grades.forEach { grade ->
+                                    GradeCard(grade) {
+                                        selectedSubject = grade.subject
+                                        currentScreen = "subjectDetails"
+                                    }
+                                }
                             }
                         }
                     }
@@ -461,6 +467,79 @@ fun AcademicCalendarApp() {
             TimetableScreenWithBack(
                 onBack = { currentScreen = "calendar" }
             )
+        }
+
+        "subjectDetails" -> {
+            selectedSubject?.let { subject ->
+                SubjectDetailsScreen(
+                    subject = subject,
+                    gradesByWeek = gradesByWeek,
+                    onBack = { currentScreen = "calendar" }
+                )
+            }
+        }
+    }
+}
+@Composable
+fun SubjectDetailsScreen(
+    subject: String,
+    gradesByWeek: Map<String, List<Grade>>,
+    onBack: () -> Unit
+) {
+    val filtered = gradesByWeek.mapValues { entry ->
+        entry.value.filter { it.subject == subject }
+    }.filterValues { it.isNotEmpty() }
+
+    val sortedWeeks = filtered.keys
+        .sortedByDescending { it.removePrefix("Week ").toInt() }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5))
+    ) {
+        // 🔙 Back + Title
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "< Back",
+                modifier = Modifier.clickable { onBack() },
+                color = Color(0xFF1565C0),
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Text(
+                text = subject,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            sortedWeeks.forEach { week ->
+                val grades = filtered[week] ?: emptyList()
+
+                item {
+                    Text(
+                        text = week,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                items(grades) { grade ->
+                    GradeCard(grade) // no click needed here
+                }
+            }
         }
     }
 }
@@ -989,11 +1068,13 @@ fun CalendarGrid(
     }
 }
 @Composable
-fun GradeCard(grade: Grade) {
+fun GradeCard(grade: Grade, onClick: () -> Unit = {}) {
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
     ) {
         Row(
             modifier = Modifier
