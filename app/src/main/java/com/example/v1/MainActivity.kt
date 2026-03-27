@@ -125,26 +125,64 @@ fun formatTime(hoursLeft: Int): String {
 @Composable
 fun DeadlineBannerCard(deadline: Deadline) {
     val hoursLeft = calculateHoursLeft(deadline.date, deadline.time)
-    val totalHours = 7 * 24f // неделя как максимум
+    val totalHours = 7 * 24f
     val progress = (1f - (hoursLeft / totalHours)).coerceIn(0f, 1f)
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (hoursLeft < 24) Color(0xFFF44336) else Color(0xFF2196F3)
-        ),
+
+    val isUrgent = hoursLeft < 24
+
+    val gradient = if (isUrgent) {
+        Brush.horizontalGradient(listOf(Color(0xFFFF8A80), Color(0xFFE53935)))
+    } else {
+        Brush.horizontalGradient(listOf(Color(0xFF64B5F6), Color(0xFF1976D2)))
+    }
+
+    Box(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
+            .height(110.dp)
             .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(gradient)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(deadline.type, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text(deadline.subject, color = Color.White.copy(0.9f))
+
+                // 🔥 Urgent badge
+                if (isUrgent) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.White.copy(alpha = 0.2f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "Urgent deadline",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                Text(
+                    text = deadline.type,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                Text(
+                    text = deadline.subject,
+                    fontSize = 16.sp,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
             }
 
             ProgressCircle(
@@ -157,50 +195,62 @@ fun DeadlineBannerCard(deadline: Deadline) {
 }
 @Composable
 fun ProgressCircle(progress: Float, hoursLeft: Int, color: Color) {
-    val animatedProgress by animateFloatAsState(targetValue = progress, label = "")
+    val animatedProgress by animateFloatAsState(progress, label = "")
 
-    val timeText = if (hoursLeft >= 24) {
-        val days = hoursLeft / 24
-        val hours = hoursLeft % 24
+    val days = hoursLeft / 24
+    val hours = hoursLeft % 24
+
+    val text = if (hoursLeft >= 24) {
         "${days}d ${hours}h"
     } else {
         "${hoursLeft}h"
     }
 
     Box(
-        modifier = Modifier
-            .size(56.dp)
-            .drawBehind {
-                val strokeWidth = 8f
-                val radius = size.minDimension / 2 - strokeWidth
-
-                // Фон
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.2f),
-                    radius = radius,
-                    style = Stroke(strokeWidth)
-                )
-
-                // Прогресс
-                drawArc(
-                    color = color,
-                    startAngle = -90f,
-                    sweepAngle = animatedProgress * 360f,
-                    useCenter = false,
-                    style = Stroke(strokeWidth)
-                )
-            },
+        modifier = Modifier.size(70.dp),
         contentAlignment = Alignment.Center
     ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = 10f
+
+            // 👇 гарантированно квадрат
+            val diameter = size.minDimension
+            val topLeft = Offset(
+                (size.width - diameter) / 2,
+                (size.height - diameter) / 2
+            )
+
+            val arcSize = Size(diameter, diameter)
+
+            drawArc(
+                color = Color.White.copy(alpha = 0.2f),
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(stroke)
+            )
+
+            drawArc(
+                color = color,
+                startAngle = -90f,
+                sweepAngle = animatedProgress * 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(stroke)
+            )
+        }
+
         Text(
-            text = timeText,
-            fontSize = 11.sp,
+            text = text,
+            color = Color.White,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            fontSize = 12.sp
         )
     }
 }
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -209,21 +259,60 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
+@Composable
+fun TimeTableButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(Color(0xFF4A90E2), Color(0xFF1565C0))
+                )
+            )
+            .clickable { onClick() }
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.DateRange,
+                contentDescription = null,
+                tint = Color.White
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "Time Table",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AcademicCalendarApp() {
     var listContent by remember { mutableStateOf("deadlines") }
     var hwEnabled by remember { mutableStateOf(true) }
     var quizEnabled by remember { mutableStateOf(true) }
+    var projectEnabled by remember { mutableStateOf(true) }
     var labEnabled by remember { mutableStateOf(true) }
     var currentScreen by remember { mutableStateOf("calendar") }
     val todayDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     val deadlines = listOf(
         Deadline(
+            title = "Final Project",
+            subject = "Software Engineering",
+            date = LocalDate(2026, 4, 5),
+            time = "23:00",
+            type = "Project",
+            color = Color(0xFF9C27B0)
+        ),
+        Deadline(
             title = "Homework 1",
             subject = "Calculus 2",
-            date = todayDate.minus(3, DateTimeUnit.DAY),
+            date = LocalDate(2026, 3, 26),
             time = "10:00",
             type = "H/W",
             color = Color(0xFF2196F3)
@@ -231,7 +320,7 @@ fun AcademicCalendarApp() {
         Deadline(
             title = "Homework 1",
             subject = "Physics 2",
-            date = todayDate.minus(8, DateTimeUnit.DAY),
+            date = LocalDate(2026, 3, 27),
             time = "12:00",
             type = "H/W",
             color = Color(0xFF2196F3)
@@ -239,7 +328,7 @@ fun AcademicCalendarApp() {
         Deadline(
             title = "Homework 2",
             subject = "Calculus 2",
-            date = LocalDate(2026, 3, 19),
+            date = LocalDate(2026, 3, 30),
             time = "22:00",
             type = "H/W",
             color = Color(0xFF4CAF50)
@@ -247,7 +336,7 @@ fun AcademicCalendarApp() {
         Deadline(
             title = "Quiz 2",
             subject = "AE 2",
-            date = LocalDate(2026, 3, 20),
+            date = LocalDate(2026, 4, 4),
             time = "23:00",
             type = "Quiz",
             color = Color(0xFF2196F3)
@@ -255,8 +344,8 @@ fun AcademicCalendarApp() {
         Deadline(
             title = "Quiz 3",
             subject = "Physics 2",
-            date = LocalDate(2026, 3, 22),
-            time = "23:00",
+            date = LocalDate(2026, 3, 27),
+            time = "10:00",
             type = "Quiz",
             color = Color(0xFF2196F3)
         ),
@@ -271,7 +360,7 @@ fun AcademicCalendarApp() {
         Deadline(
             title = "Laboratory",
             subject = "OOP",
-            date = LocalDate(2026, 3, 26),
+            date = LocalDate(2026, 4, 2),
             time = "23:00",
             type = "Lab",
             color = Color(0xFFFF9800)
@@ -300,6 +389,7 @@ fun AcademicCalendarApp() {
             "H/W" -> hwEnabled
             "Quiz" -> quizEnabled
             "Lab" -> labEnabled
+            "Project" -> projectEnabled
             else -> false
         }
     }.sortedBy { it.date }
@@ -315,7 +405,7 @@ fun AcademicCalendarApp() {
                     .fillMaxSize()
                     .background(Color(0xFFF5F5F5))
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
                 item { TopHeader() }
@@ -323,19 +413,24 @@ fun AcademicCalendarApp() {
                 item { DeadlinesPager(deadlines = upcomingDeadlines) }
 
                 item {
+                    TimeTableButton {
+                        currentScreen = "timetable"
+                    }
+                }
+                item {
                     FiltersRow(
                         hwEnabled = hwEnabled,
                         onHwToggle = { hwEnabled = !hwEnabled },
                         quizEnabled = quizEnabled,
                         onQuizToggle = { quizEnabled = !quizEnabled },
                         labEnabled = labEnabled,
-                        onLabToggle = { labEnabled = !labEnabled },
+                        onLabToggle = { labEnabled = !labEnabled },projectEnabled = projectEnabled,
+                        onProjectToggle = { projectEnabled = !projectEnabled },
 
                         // 👇 ВАЖНО
                         onTimetableClick = { currentScreen = "timetable" }
                     )
                 }
-
                 item { CalendarSection(today = todayDate, deadlines = filteredDeadlines) }
 
                 item { SwitchButtons(selected = listContent, onSelect = { listContent = it }) }
@@ -595,7 +690,7 @@ fun GradesBottomContent(gradesByWeek: Map<String, List<Grade>>) {
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(0.dp) // Убрал отступы снизу
     ) {
         gradesByWeek.forEach { (week, grades) ->
@@ -620,8 +715,10 @@ fun CalendarContent(
     hwEnabled: Boolean, onHwToggle: () -> Unit,
     quizEnabled: Boolean, onQuizToggle: () -> Unit,
     labEnabled: Boolean, onLabToggle: () -> Unit,
+    projectEnabled: Boolean, onProjectToggle: () -> Unit // ✅ ДОБАВЬ
 ) {
     var currentScreen by remember { mutableStateOf("calendar") }
+    var selectedSubject by remember { mutableStateOf<String?>(null) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -632,7 +729,8 @@ fun CalendarContent(
     ) {
         item { DeadlinesPager(filteredDeadlines) }
         item {
-            FiltersRow(hwEnabled, onHwToggle, quizEnabled, onQuizToggle, labEnabled, onLabToggle,onTimetableClick = { currentScreen = "timetable" })
+            FiltersRow(hwEnabled, onHwToggle, quizEnabled, onQuizToggle, labEnabled, onLabToggle,onTimetableClick = { currentScreen = "timetable" }, projectEnabled = projectEnabled,
+                onProjectToggle = { onProjectToggle })
         }
         item { CalendarSection(today = today, deadlines = filteredDeadlines) }
         items(filteredDeadlines) { DeadlineCard(it) }
@@ -663,7 +761,7 @@ fun CalendarScreen(
     hwEnabled: Boolean, onHwToggle: () -> Unit,
     quizEnabled: Boolean, onQuizToggle: () -> Unit,
     labEnabled: Boolean, onLabToggle: () -> Unit,
-    examsEnabled: Boolean, onExamsToggle: () -> Unit
+    projectEnabled: Boolean, onProjectToggle: () -> Unit // 👈 ДОБАВЬ
 ) {
     var currentScreen by remember { mutableStateOf("calendar") }
     LazyColumn(
@@ -678,6 +776,8 @@ fun CalendarScreen(
                 hwEnabled, onHwToggle,
                 quizEnabled, onQuizToggle,
                 labEnabled, onLabToggle,
+                projectEnabled = projectEnabled,
+                onProjectToggle = onProjectToggle,
                 onTimetableClick = { currentScreen = "timetable" }
             )
         }
@@ -758,9 +858,9 @@ fun CalendarSection(today: LocalDate, deadlines: List<Deadline>, modifier: Modif
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)) {
         Column(
             modifier = Modifier
                 .padding(16.dp)
@@ -812,10 +912,10 @@ fun CalendarSection(today: LocalDate, deadlines: List<Deadline>, modifier: Modif
                 deadlines = deadlines,
                 onDayClick = { text -> selectedText = text }
             )
-            selectedText?.let {
+            if (!selectedText.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = it,
+                    text = selectedText!!,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.Gray
@@ -875,6 +975,8 @@ fun CalendarGrid(
                                     if (dayDeadlines.isNotEmpty()) {
                                         val text = dayDeadlines.joinToString { "${it.subject} ${it.title}" }
                                         onDayClick(text)
+                                    } else {
+                                        onDayClick("") // 👈 CLEAR TEXT
                                     }
                                 }
                         )
@@ -1030,57 +1132,55 @@ fun FiltersRow(
     hwEnabled: Boolean, onHwToggle: () -> Unit,
     quizEnabled: Boolean, onQuizToggle: () -> Unit,
     labEnabled: Boolean, onLabToggle: () -> Unit,
+    projectEnabled: Boolean, onProjectToggle: () -> Unit,
     onTimetableClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 8.dp), // Чуть выше календаря
+            .padding(top = 4.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Кнопки фильтров (левый край = левый край календаря)
         Row(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 16.dp), // ← Точно как у календаря
+                .padding(start = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterButton("H/W", hwEnabled, Color(0xFF4CAF50), onHwToggle)
             FilterButton("Quiz", quizEnabled, Color(0xFF2196F3), onQuizToggle)
             FilterButton("Lab", labEnabled, Color(0xFFFF9800), onLabToggle)
-        }
 
-        // Иконка Timetable (правый край = правый край календаря)
-        Icon(
-            imageVector = Icons.Default.DateRange,
-            contentDescription = "Timetable",
-            tint = Color(0xFF1565C0),
-            modifier = Modifier
-                .padding(end = 16.dp)
-                .size(28.dp)
-                .clickable { onTimetableClick() }
-        )
+            // 👇 ШИРОКАЯ кнопка
+            FilterButton(
+                text = "Project Work",
+                isActive = projectEnabled,
+                color = Color(0xFF9C27B0),
+                onClick = onProjectToggle,
+                modifier = Modifier.width(130.dp)
+            )
+        }
     }
 }
 
 @Composable
-fun FilterButton(text: String, isActive: Boolean, color: Color, onClick: () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isActive) color.copy(alpha = 0.1f) else Color.White),
-        modifier = Modifier.clickable { onClick() }
+fun FilterButton(text: String,
+                     isActive: Boolean,
+                     color: Color,
+                     onClick: () -> Unit,
+                     modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isActive) color else Color.LightGray.copy(alpha = 0.2f))
+            .clickable { onClick() }
+            .padding(horizontal = 18.dp, vertical = 10.dp)
     ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                color = if (isActive) color else Color.Gray,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp
-            )
-        }
+        Text(
+            text = text,
+            color = if (isActive) Color.White else Color.Black,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -1107,76 +1207,52 @@ fun DeadlineCard(deadline: Deadline) {
     val hoursLeft = calculateHoursLeft(deadline.date, deadline.time)
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(4.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+                .padding(18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ✅ КРУЖОК цвета задания с заглавной буквой (слева)
+
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
-                    .background(
-                        brush = Brush.radialGradient(
-                            listOf(deadline.color, deadline.color.copy(alpha = 0.5f))
-                        )
-                    ),
+                    .background(deadline.color.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = deadline.type.take(1).uppercase(),
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    text = deadline.subject.first().uppercase(),
+                    color = deadline.color,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
-            // ✅ СЕНТР: тип, предмет, дата
             Column(modifier = Modifier.weight(1f)) {
-                // Тип задания (черным)
-                Text(
-                    text = deadline.type,
-                    color = Color.Black,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Предмет (серым, меньше)
                 Text(
                     text = deadline.subject,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+
+                Text(
+                    text = deadline.title,
                     color = Color.Gray,
                     fontSize = 14.sp
                 )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Дата dd.mm.yy 23:00 (цвет типа задания)
-                Text(
-                    text = "${deadline.date.dayOfMonth.toString().padStart(2, '0')}.${deadline.date.monthNumber.toString().padStart(2, '0')}.26 ${deadline.time}",
-                    fontSize = 14.sp,
-                    color = deadline.color,
-                    fontWeight = FontWeight.Medium
-                )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // ✅ ПРАВАЯ ЧАСТЬ: количество дней и часов (черным)
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = formatTime(hoursLeft.toInt()),
-                    color = Color.Black, // ✅ Черный цвет
-                    fontSize = 16.sp,
+                    color = if (hoursLeft < 24) Color.Red else Color.Black,
                     fontWeight = FontWeight.Bold
                 )
             }
